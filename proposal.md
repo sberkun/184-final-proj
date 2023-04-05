@@ -64,7 +64,7 @@ Week 2 (4/17-4/23):
  - Implement volumetric scattering for heterogenous volumes (i.e. simple smoke). Render some simple smoke.
 
 Week 3 (4/24-4/30):
- -  Eperiment and  potentiallymodel different mediums
+ - Experiment and potentially model different mediums
  - Experiment with animations / simulations
  - Optimization: Speed up the rendering process
  - Start writing final project report
