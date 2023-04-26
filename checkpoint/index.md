@@ -37,5 +37,7 @@ Absorption:
 
 # Video and Presentation
 
-[TODO: link to video]()
+[video](./video1537576168.mp4)
+
+
 [Presentation](https://docs.google.com/presentation/d/e/2PACX-1vR3yRybiOHc-NpsB6VhsimPqGPOrPzHQoE5ZCKoerq5uKw18zFb7ZVRjgXRkEJnYtf6GFyZWRwIJ2Ur/pub?start=false&loop=false&delayms=3000)
