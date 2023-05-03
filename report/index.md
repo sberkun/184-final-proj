@@ -8,8 +8,13 @@ mathjax: true
 
 By Meiqi Sun, Akhil Vemuri, Connor Dang, and Samuel Berkun 
 
+
+<iframe width="640" height="360" src="https://www.youtube.com/embed/aUkkUm4Sq2E" title="Foggy Dragons" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+
+
 ## Abstract
-Through this project, we built a volumetric ray tracer that renders the effect of fog onto the scene. The raytracer that we started with had the assumption that the rays would travel in straight line until it hits the surface of an object. However, when mediums are present, we need to break the assumption: when hitting a fog particle, the ray will also be affected (absorption, scattering, etc). This project supports both homogeneous and bounded-volume heterogeneous fog rendering by applying the techniques of ray-marching, anisotropic scattering, fog shadowing, and mesh-bounded scattering.
+Through this project, we built a volumetric ray tracer that renders the effect of fog onto the scene. The raytracer that we started with had the assumption that the rays would travel in straight line until it hits the surface of an object. However, when mediums are present, we need to break the assumption: when hitting a fog particle, the ray will also be affected (absorption, scattering, etc). This project supports both global fog and bounded-volume fog rendering by applying the techniques of ray-marching, anisotropic scattering, fog shadowing, and mesh-bounded scattering.
 
 ## Technical Approach
 
@@ -44,13 +49,13 @@ We modelled fog density as the exponential parameter $$\lambda$$ and found that 
 
 ### Isotropic vs Anisotropic scattering
 
+When light hits a particle, it typically scatters with some distribution. The simplest approach would be to have it scatter in a uniform sphere (aka isotropic scattering). This is easy to implement, but does not give the best-looking results.
+
 Several papers we read mentioned that realistic scattering was typically not isotropic, and gave the Henyey-Greenstein function as an easy-to-compute anisotropic distribution that could give more realistic results (see references 1, 2). The Henyey-Greenstein function is given by
 
  $$\frac{1}{4 \pi} \frac{1 - g ^ 2}{[1 + g ^ 2 - 2g\cos\theta]^\frac{3}{2}}$$ 
  
-This provides a configurable phase function when modeling ray scattering after encountering a fog particle. 
-
-We choose this function because it is very flexible and allows us to model different types of scattering. As we vary $$g$$,  we adjust the level of shearing we have for our pdf function. When $$g = 0$$, the function simplifies to $$\frac{1}{4 \pi}$$, which entails an uniform scattering across all directions. The higher the absolute value of $$g$$ is, the more "oval-ly" it spreads along the directions of scattering. And for positive $$g$$, we have more scattering along the opposite direction of the ray; while for negative $$g$$, we would have more scattering along the original direction of the ray. 
+This provides a configurable phase function; it is very flexible and allows us to model different types of scattering. As we vary $$g$$,  we adjust the level of shearing we have for our pdf function. When $$g = 0$$, the function simplifies to $$\frac{1}{4 \pi}$$, which entails an uniform scattering across all directions. The higher the absolute value of $$g$$ is, the more "oval-ly" it spreads along the directions of scattering. And for positive $$g$$, we have more scattering along the opposite direction of the ray; while for negative $$g$$, we would have more scattering along the original direction of the ray. 
 
 Here is a comparison between isotropic scattering, and anisotropic scattering using the Henyey-Greenstein function. The following scene uses three point lights of different colors, to show how the colors interact with the fog:
 
