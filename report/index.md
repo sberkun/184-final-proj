@@ -9,7 +9,7 @@ mathjax: true
 By Meiqi Sun, Akhil Vemuri, Connor Dang, and Samuel Berkun 
 
 ## Abstract
-Through this project, we built a volumetric ray tracer that renders the effect of fog onto the scene. The basic raytracer had the assumption that the rays would travel in straight light until it hits the surface of an object. However, when mediums are present, we need to break the assumption: when hitting a fog particle, the ray will also be affected (absorption, scattering, etc). This project supports both homogeneous and bounded-volume heterogeneous fog rendering by applying the techniques of ray-marching, anisotropic scattering, fog shadowing, and mesh-bounded scattering.
+Through this project, we built a volumetric ray tracer that renders the effect of fog onto the scene. The raytracer that we started with had the assumption that the rays would travel in straight line until it hits the surface of an object. However, when mediums are present, we need to break the assumption: when hitting a fog particle, the ray will also be affected (absorption, scattering, etc). This project supports both homogeneous and bounded-volume heterogeneous fog rendering by applying the techniques of ray-marching, anisotropic scattering, fog shadowing, and mesh-bounded scattering.
 
 ## Technical Approach
 
@@ -68,17 +68,17 @@ Both isotropic scattering and forward-biased scattering provide realistic-lookin
 
 ## Improving the performance of Anisotropic Scattering
 
-Our initial implementation of anisotropic scattering used the Harvey-Weinstein function to calculate the reflectance of the fog, but sampled the reflectance direction using a uniform spherical distribution. This created noise at high anisotropy levels (such as $$g = 0.9$$). This solution was to importance sample the Harvey-Weinstien function. Reference 3 describes an analytical solution, as well as several methods that can be used if an analytical solution was not available. 
+Our initial implementation of anisotropic scattering used the Henyey-Greenstein function to calculate the reflectance of the fog, but sampled the reflectance direction using a uniform spherical distribution. This created noise at high anisotropy levels (such as $$g = 0.9$$). This solution was to importance sample the Henyey-Greenstein function. Reference 3 describes an analytical solution, as well as several methods that can be used if an analytical solution was not available. We ended up using this equation from reference 3:
 
-TODO: mention paper 2 for importance sampling function
+$$z = \frac{1}{2g} (1 + g^2 - (\frac{1 - g^2}{1 - g + 2g\epsilon_1})^2)$$
 
+Which generates a correctly-distributed $$z$$-value for the Henyey-Greenstein scattering distribution.
 
-TODO: importance sampling H-W function
-We applied the inverse CDF approach. We referenced online sources (see reference 3), and proved that the proposed inverse CDF do correspond to the Henyey-Greenstein function as the pdf.
+Here are some sample renders with $$g = -0.6$$, and at 256 samples to show the reduced noise:
 
-Since it is hard to directly compute the integral of Henyey-Greenstein function, we instead sample from the uniform distribution and use  <br> $$\mu = \frac{1}{2g} (1 + g^2 - (\frac{1 - g^2}{1 - g + 2g\epsilon_1})^2)$$ <br> to get the value of $$\cos(\theta)$$. We can then work out the value of the pdf & $$\sin \theta$$ (trigonometry).
- 
-We also get another independent sample from the uniform distribution $$\epsilon _2$$ and use <br> $$\phi = 2 \pi \epsilon _2$$ <br> to get the value of $$\phi$$ for transforming to "world" coordinates.
+Uniform sampling | Importance sampling
+-------- | --------
+![](./importance/bunny_uniform.png) | ![](./importance/bunny_imp.png)
 
 ### Fog Shadowing
 
@@ -112,21 +112,35 @@ The difference is mainly a decrease in overall brightness; it's most apparent in
 
 With our fog implementation complete, we decided to go a step further and attempt mesh-bounded scattering. For mesh-bounded scattering, the fog is enclosed in a mesh and light rays intersecting with the mesh are no longer bounced off of the surface of the volume and instead may pass completely through, intersect with another object inside, or interact with a fog particle.
 
-To implement this, we took inspiration from the glass/mirror materials previous implemented in the initial codebase. With these materials, the BRDF functions simply return a mirrored 
+In our design, we make the fog density a property of the ray - making the appropriate changes in our fog tracing pipeline to inherit the fog density from the ray we are working with. This allows us to vary the fog density throughout various sections of space since each intersection/bounce is a separate ray.
 
-TODO: A 1-2 page summary of your technical approach, techniques used, algorithms implemented, etc. (use references to papers or other resources for further detail). Highlight how your approach varied from the references used (did you implement a subset, or did you change or enhance anything), the unique decisions you made and why.
-TODO: A description of problems encountered and how you tackled them.
+To implement this, we took inspiration from the glass/mirror materials previous implemented in the initial codebase. With these materials, the BRDF functions return a 'mirrored' ray direction to sample the radiance at a different location in the scene. To model our fog property, we created a Fog BRDF which deterministically selects the bounce direction to be the continuation of the previous ray. This allows us to sample the radiance within the bounded volume as well as on the other side of the volume.
+
+When a ray initially intersects the fog volume, a second ray is cast (in the same direction) into volume bounded by the mesh. This ray's fog density property is incremented by the fog density of the mesh's Fog BRDF. If the ray eventually intersects the fog volume boundary again (to exit), the ray's fog density property is decremented. This allows us to revert to the initial fog density that we had before entering the fog volume. The global illumination function was updated such that newly created rays (to simulate bounces in the light path) are initialized with the same fog density as its parent ray and are incremented/decremented by the concentration of fog represented by the boundaries they touch.
+
+Ultimately, these changes come together to create some pretty neat effects as shown in the renders below. Some features to take note of are the semi-transparent nature of the scene objects and the visibility of objects when directly illuminated vs. indirectly illuminated.
+
+$$\lambda = 0.3$$ Fog Density | $$\lambda = 10$$ Fog Density | Solid Dragon
+-------- | -------- | --------
+![](./fog-dragon/mid_3_fog_dragon.png) | ![](./fog-dragon/mid_10_fog_dragon.png) | ![](./fog-dragon/front_solid.png)
+
+$$\lambda = 10$$ Fog Density w/ Different Light Angle | Red Fog Dragon
+-------- | -------
+![](./fog-dragon/front_10_fog_dragon.png) | ![](./fog-dragon/red_dragon.png)
+
+One limitation we ran into with our method include an inability to render the shadows nicely. With less concentrated fog volumes, the blocked light should decrease and we should have softer shadows beneath the volumes. In our implementation, this does not happen because of the way light is sampled at points in the scene. Because the renderer is built upon the assumption that all objects are solid, it does not consider that light may pass through objects which is something that should occur with our fog volume.
+
+Another limitation with our approach is that mesh-bounded scattering can only be rendered with global illumination. Similar to glass and mirror materials, light requires multiple bounces before it can reach the fog particles within the bounded volume.
+
 
 
 ## Challenges
 - Problem: Dae File Spotlight Rendering
     - Since we were working on volumetric rendering, we wanted to add multiple spotlights to the scene so that we can better visualize our results. However, throughout the process, we met multiple challenges. 
         1. First of all, the most recent version of Blender had a different format for the exported dae file, and our initial codebase is unable to render the image. Thus, we tried to install and use Blender 2.7 instead (we also later tried to update `collada.cpp` to enhance the parsing capability). 
-        2. Rendering on local machines took a very long time, and would frequently give completely black images (possibly due to the specific OS requirements oforf some modules used in dae file parsing). We initially thought it was a dae file issue, and spent very long time trying to compare and debug the dae file. But it turns out that if we run on the hive machine, the images soon rendered properly.
+        2. Rendering on local machines took a very long time, and would frequently give completely black images (possibly due to the specific OS requirements of some modules used in dae file parsing). We initially thought it was a dae file issue, and spent very long time trying to compare and debug the dae file. But it turns out that if we run on the hive machine, the images soon rendered properly.
         3. We tried to move camera positions and angles when creating the dae files, and soon realized that we should instead stick to the default. Otherwise, our rendered image would be targeted at a very wrong direction.
         4. When we added spotlights to the scene, it was initially not recognized by our code. We again thought it was because we had the wrong spotlight settings from Blender (actually most of the light source types work, but only this spotlight isn't showing up properly). We later realized that it was because we had an empty spotlight implementation in `light.cpp`, and that after completing the function and returning the correct radiance, we were able to observe spotlights in our results.
-
-
 
 
 - Problem: Noisy Rendering
@@ -138,47 +152,66 @@ TODO: A description of problems encountered and how you tackled them.
 1. Check the compatibility of the codebase w/ different types of lights before rendering
     It might be a parser issue/implementation issue/light power issue, etc. We should think thoroughly about the possible causes of the issues while debugging. 
 2. Pay attention to adaptive sampling
+    The way and quality we run sampling would have a great effect on the quality of our final output image, so we need to be sure that our algorithm stops sampling only after it truly converged (and not actually be tricked)
 3. Understand the papers and extract (simplify to) the essential parts to build the model for our implementation
+    Models in the papers are probably very complicated and computationally expensive, so extracting the essential "big ideas" is crucial 
 
 ## Results
 
-### Fog-like haze
+Our renderer is particularly good at emphasizing light beams from spotlights:
 
-We found that an anisotropy of 0.6 (forward biased) led to a misty-looking haze over the entire scene:
-[TODO: renders]
+No fog direct lighting | Fog direct lighting | Fog global illumination
+-------- | -------- | --------
+![](./spotdragon/dragon_direct_nofog.png) | ![](./spotdragon/dragon_direct_fog.png) | ![](./spotdragon/dragon_indirect_fog.png)
+-------- | -------- | --------
+![](./3spot/threespot_direct_nofog.png) | ![](./3spot/threespot_direct_fog.png) | ![](./3spot/threespot_indirect_fog.png)
 
-As the scattering density is increased, this haze tends to take on the color of the lights in the scene, "washing out" the other colors in the scene. In particular, note that the colors on the red and blue walls tend to disappear:
+Here is a dragon model front-lit by a spotlight. Note the shadow rays behind the dragon:
 
-[TODO: renders]
+Fog direct lighting | Fog global illumination
+-------- | --------
+![](./front/direct_more.png) | ![](./front/global.png)
 
-This haze tends to create a "glare" as well, especially with more forward-biased anisotropy. This is especially apparent in the above scenes
+Some other scenes we created:
 
-### Light rays
+Car with headlights | Gems
+-------- | --------
+![](./misc/road.png) | ![](./misc/gems.png)
 
-Light rays are a cool effect, caused by the direct lighting of dust, fog, or mist particles in the path of a light beam. This is especially apparent when rendering scenes with volumetric effects.
+Our crowning achievement is re-creating Disney's render of a dragon lit by colored lights:
 
-[TODO: renders]
+Ours | Disney's
+-------- | --------
+![](./rea/g-0.6.png) | ![](../checkpoint/dragon_goal.png)
 
-As each ray hits an object, it either bounces off or is absorbed, depending on the material. The resulting color and intensity of the ray are determined by the object's surface properties, such as its reflectivity, transparency, and texture. And when the ray intersects a volumetric element like fog, it scatters in different directions, creating the appearance of light rays emanating from the source.
+(Our render isn't exactly the same, but in our defense, our budget isn't either)
+
+Finally, we had some fun creating ghosts:
+
+Fog dragon | Solid dragon
+-------- | --------
+![](./fog-dragon/front_10_fog_dragon.png) | ![](./fog-dragon/front_solid.png)
 
 
 ## References
 
-1. Light Transport in Participating Media: https://cs.dartmouth.edu/~wjarosz/publications/dissertation/chapter4.pdf
-2. Rendering Participating Media with Bidirectional Path Tracing: http://luthuli.cs.uiuc.edu/~daf/courses/rendering/papers/lafortune96rendering.pdf 
-3. On Sampling Of Scattering Phase Functions: https://arxiv.org/pdf/1812.00799.pdf
+1. Light Transport in Participating Media: [https://cs.dartmouth.edu/~wjarosz/publications/dissertation/chapter4.pdf](https://cs.dartmouth.edu/~wjarosz/publications/dissertation/chapter4.pdf)
+2. Rendering Participating Media with Bidirectional Path Tracing: [http://luthuli.cs.uiuc.edu/~daf/courses/rendering/papers/lafortune96rendering.pdf](http://luthuli.cs.uiuc.edu/~daf/courses/rendering/papers/lafortune96rendering.pdf)
+3. On Sampling Of Scattering Phase Functions: [https://arxiv.org/pdf/1812.00799.pdf](https://arxiv.org/pdf/1812.00799.pdf)
+4. Volumetric Path Tracing: [https://justgood.dev/docs/740-paper.pdf](https://justgood.dev/docs/740-paper.pdf)
+
 
 ## Contributions from each team member
 
  - Everyone:
-    - general approach and bug fixing
+    - General approach and bug fixing
  - Meiqi Sun:
-    - math
-    - dae file generation
-    - spotlight implementation
+    - Math
+    - Dae file generation
+    - Spotlight implementation
  - Akhil Vemuri
-    - dae file generation
-    - spotlight dae file generation
+    - Dae file generation
+    - Spotlight dae file generation
  - Connor Dang
     - ray marching implementation
     - mesh-bounded volume implementation
