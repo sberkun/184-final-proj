@@ -66,7 +66,7 @@ Back-biased scattering ($$g > 0$$) | Forward-biased scattering ($$g < 0$$)
 
 Both isotropic scattering and forward-biased scattering provide realistic-looking results. Forward-biased scattering tends to create more "glare" from lights pointed toward the camera, which may be desirable depending on the scene. In the above scene, it aids in creating a natural-looking haze around the point lights.
 
-## Improving the performance of Anisotropic Scattering
+### Improving the performance of Anisotropic Scattering
 
 Our initial implementation of anisotropic scattering used the Henyey-Greenstein function to calculate the reflectance of the fog, but sampled the reflectance direction using a uniform spherical distribution. This created noise at high anisotropy levels (such as $$g = 0.9$$). This solution was to importance sample the Henyey-Greenstein function. Reference 3 describes an analytical solution, as well as several methods that can be used if an analytical solution was not available. We ended up using this equation from reference 3:
 
